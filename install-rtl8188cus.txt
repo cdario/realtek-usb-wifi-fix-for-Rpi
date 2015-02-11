@@ -1,0 +1,900 @@
+# An idiot's guide to RTL8188CUS wifi adapter setup - (the idiot is me of course - MrEngman)
+
+# What an idiot, why am I doing this? It's just asking for trouble.
+
+# Update: 22/05/2012 - It is now not necessary to edit the script to add the network SSID 
+# and PASSWORD. When the script is run will ask you to input them when required.
+
+# Update: 25/05/2012 - I have added an option to enable the wifi adapter to be hotpluggable.
+# i.e. you can remove the adapter while the Pi is powered on and then plug it back in later
+# and the wifi will automatically re-install and reconnect to the wireless network.
+
+# Update: 28/05/2012 - Minor change to ensure the wifi is detected as connected and not the
+# wired network if a wired network cable is plugged in as well.
+
+# Update: 31/05/2012 - Minor change to disable automatically running rpi-update. Running 
+# rpi-update recently has caused problems and kills the wifi. You can run rpi-update if you
+# want to but it may cause problems so be warned.
+
+# Update: 08/06/2012 - Major update. I have compiled a new driver for the RTL8188CUS. The 
+# script will now run with or without an ethernet connection. It will determine if the 
+# ethernet is connected and if it is will use the internet to download any files needed. It 
+# will then install the new wifi driver which handles the current updates to the RPi 
+# firmware and software downloaded by rpi-update.
+# If there is no internet connection the script will proceed as before and install the 
+# original drivers that must first be copied to the SD card before running it in the RPi. 
+# The apt-get updates and upgrades will be loaded and rpi-update will be run to update the 
+# RPi firmware and software. Finally the latest wifi driver will be installed to handle the 
+# new updates. And finally RPi will reboot to enable the new driver.
+
+# Update: 17/06/2012 - Updated driver to take care of latest rpi-updates.
+
+# Update: 22/06/2012 - Updated driver to remove debug output.
+
+# Update: 24/06/2012 - Added options to allow installation for unsecured, WEP and WPA/WPA2 
+# secured networks. The DHCP update is now also optional. And only change apt-get 
+# sources.list for debian6-19-04-2012 version. The latest version of the script has now been 
+# renamed install-rtl8192cu-latest.sh. The latest version of the tared driver has been 
+# renamed 8192cu-latest.tar.gz. This avoids having to check for any different names as 
+# code is changed or updated. Pointers to these files are on the Raspberry Pi wiki at 
+# http://elinux.org/RPi_VerifiedPeripherals#Working_USB_Wifi_Adapters. Look for 
+# Micronet SP907NS, 11N Wireless LAN USB Adapter.
+
+# Update: 29/06/2012 - Updated driver to sdd USB ID to enable Netgear WNA1000M.
+
+# Update: 01/07/2012 - Updated driver to take care of latest rpi-updates
+
+# Update: 05/07/2012 - Updated driver/linux version list to add #149 PREEMPT
+
+# Update: 17/07/2012 - Major update. The script should now be able to install the rtl8188cus 
+# wifi driver on the following Linux versions. Debian6-19-04-2012, 2012-06-18-wheezy-beta, 
+# raspbian hexxeh R3, raspbian pisces+mate R1, raspbian pisces R1, raspbian pisces R2, 
+# raspbian pisces R3 and raspbian_wheezy_20120608 (darkbasic). It has not been used with any 
+# other images.
+# The script will install the wifi adapter on an SD card with a newly installed image or on 
+# one that has been updated using rpi-update or some other method. It will also update the 
+# wifi driver on an SD that already has the wifi driver installed. This will enable the SD 
+# card to be updated and the new driver will be installed or it can be used to repair an SD 
+# card that had a working wifi but was then broken after a linux version update. It will 
+# also install the driver on an SD card that already has a different wifi adapter installed 
+# or will add another wifi adapter using the rtl8188cus chip.
+# The script will allow the wifi to be installed on a Pi that has no internet connection but
+# this will require the driver and possibly a number of additional files to be copied to the
+# SD card before starting the installation depending on the version of image being used. To
+# install on a Pi with a wired internet connection only the script is required.
+
+# Update: 08/08/2012 - Updated to be able to use the script to add/update the wifi driver on 
+#  XBian
+
+# Update: 13/08/2012 - Added test to ensure script run by root. Added test to collect list of 
+# nearby wireless networks to check network has visible SSID available.
+
+# Update: 19/08/2012 - Update for new wheezy version. Fixed bugs that put driver in wrong 
+# directory.
+
+# Update: 25/08/2012 - New driver for 3.2.27+ #66 PREEMPT
+
+# Update: 30/08/2012 - New driver for 3.2.27+ #90 PREEMPT. Removed adding additional firmware 
+# for original Debian6-19-04-2012 image as it appears to be irrelevant. The firmware is not 
+# actually needed to get the wifi running - now where did those instructions first appear?
+# Various additions to the instructions - updates/additions to script operation and info on
+# copying files to the SD card if required.
+
+# Update: 05/09/2012 - Updated script to handle new build in driver.
+
+# Update: 10/09/2012 - Updated the script to avoid having to hot-plug the wifi adapter
+# to avoid kernel crashes when plugging the wifi adapter while the Pi is powere on.
+
+# Update: 14/09/2012 - Updated the script to avoid conflicts when using apt-get upgrade and
+# rpi-update. Running rpi-update before apt-get upgrade can result in apt-get upgrade 
+# loading an older kernel version which has caused problems restoring a working driver.
+
+Introduction:
+-------------
+
+This document is intended to tell you how you can use the installation script to configure 
+your Pi to use a wifi adapter based on the Realtek RTL8188CUS wifi chip to enable it to
+connect to the internet over a wireless network.
+
+These instructions are available at http://dl.dropbox.com/u/80256631/install-rtl8188cus.txt
+They get updated occasionally so may be worth downloading again if you haven't done so for a while.
+
+The installation script is available at http://dl.dropbox.com/u/80256631/install-rtl8188cus-latest.sh
+
+If you already have the script install-rtl8188cus.sh download the script from the link above 
+and use that one.
+
+The script, a batch file in Windows speak, will install the rtl8188cus driver either on a 
+new Linux image, an image that has been upgraded using apt-get, rpi-update or some other 
+method, or an image that already has a wifi adapter installed but uses some other driver. It 
+can also be used to update the driver and software/firmware on an image or add an additional 
+wifi adapter to an image that already has a wifi adapter installed that uses the rtl8188cus 
+driver.
+
+The script can install the driver on a Pi that has no internet connection or on a Pi that 
+already has an internet connection, either using a wired LAN connection or another wifi 
+adapter.
+
+The easiest way to install the driver is if the Pi has some form of internet access using 
+either a LAN connection or wifi connection. However, an internet connection is not a 
+necessary requirement and the basic installation can be done without the Pi having internet 
+access. If the Pi has no internet access you will need some other system with access to the 
+internet so you can download the files needed to complete the wifi driver installation. Once 
+the driver is loaded the wifi adapter will provide the Pi with internet access and any files 
+needed later in the installation will be downloaded over the wifi network. If you can 
+connect your Pi to a network with access to the internet then the only file you need to 
+download is the script. Any other files needed will be downloaded from the internet by the 
+script when needed.
+
+The script can also be run on an image that already has the rtl8188cus driver installed to 
+allow it to be upgraded to the latest version compatible with the installed Linux version. 
+Also if your image has the rtl8188cus driver installed and the wifi has stopped working 
+because you have done a software upgrade you can run the script to repair/upgrade the broken 
+driver. 
+
+The script will also allow you to add additional wifi adapters to an image that already has 
+one or more already installed. The installed adapter may use a different driver or the 
+rtl8188cus driver. The script will add the new adapter and assign a unique wlan number to 
+the new adapter. You will then be able to change the connected wifi adapters if you want 
+to or even connect more than one at the same time.
+
+There have been a lot of discussions on the Raspberry Pi forums, and some are still ongoing, 
+about power supplies, Wifi adapters using too much current, and various related topics. Go 
+take a look at the forums to read more on these issues. With regard to the issues being 
+discussed about power supplies, to begin with it may be sensible to use a powered hub to 
+attach your wireless adapter to the Pi if you have one. Once the wireless is up and running 
+then you can always remove it from the hub and try it connected straight into one of the 
+Pi's USB ports. I have tried my wifi adapter plugged into a powered hub and also directly 
+into one of the Pi's USB ports and have had no serious issue with either configuration, but 
+I do have a reasonably hefty PSU.
+
+The initial installation does not require the Pi to be connected to the internet so you do 
+not need to worry about using or needing a wired network cable, however, the latter parts of 
+the installation do require access to the internet but by that time your Pi should have a 
+working wifi adapter and that will give you the necessary internet access.
+
+The script will determine if you have an internet connection and will download all the files 
+necessary to install the wifi and other updates/upgrades if you do. If you do have an internet 
+connection available to your Pi you don't need to copy any files to the SD card before booting 
+up the RPi. You can download the script to the Pi from the internet.
+
+If the Pi doesn't have an internet connection the files needed to install the basic driver 
+will need to be copied to the SD card before the installation can be completed. If you run 
+the script and any files needed are not found the script will output a list of the missing 
+files.
+
+I have tested the script with the following images:
+
+	2012-08-16-wheezy-raspbian
+	2012-08-08-wheezy-armel
+	2012-07-15-wheezy-raspbian
+	raspbian pisces R1
+	raspbian pisces R2
+	raspbian pisces R3
+	raspbian pisces+Mate R1
+	raspbian hexxeh R3
+	raspbian_wheezy_20120608 (Darkbasic)
+	2012-06-18-wheezy-beta
+	2012_06_10_spindle_wheezy_public_alpha
+	debian6-19-04-2012
+
+
+A list of files needed to install the driver on each of the listed images, if you don't have 
+an internet connection to your Pi, is at the end of this document.
+
+I have run the script many times on all the images I have tested it with. It works for me 
+very well with the devices I use, the Micronet Wireless LAN USB Adapter Model No: SP907NS 
+and the Edimax EW-7811Un even when plugged directly into one of the Pi's USB ports. 
+Unfortunately I cannot guarantee this for everyone. 
+
+So let's start ...
+
+
+
+How to find out if your wifi adapter uses a Realtek RTL8188CUS wireless chip:
+-----------------------------------------------------------------------------
+
+You can look at the documentation that came with your wifi adapter but I'm not sure it will 
+tell you anything useful. My adapter came with a CD with drivers, various PDF documents and 
+other stuff but I didn't find any information about the chip type. Maybe I just didn't look 
+hard enough, I don't know. Anyway I don't really care now as it is all working really well.
+
+Here is a short list of devices from various manufacturers I have found that use the RTL8188CUS:
+
+Device ID  Device description - (manufacturer)
+050d:1102  F7D1102 N150/Surf Micro Wireless Adapter v1000 [Realtek RTL8188CUS] - (Belkin Components)
+06f8:e033  Hercules HWNUp-150 802.11n Wireless N Pico [Realtek RTL8188CUS] - (Guillemot Corp.)
+0846:9041  WNA1000M 802.11bgn [Realtek RTL8188CUS] - (NetGear, Inc.)
+0bda:8176  RTL8188CUS 802.11n WLAN Adapter - (Realtek Semiconductor Corp.)
+2001:3308  DWA-121 802.11n Wireless N 150 Pico Adapter [Realtek RTL8188CUS] - (D-Link Corp.)
+2019:ab2a  GW-USNano2 802.11n Wireless Adapter [Realtek RTL8188CUS] - (PLANEX)
+2019:ed17  GW-USValue-EZ 802.11n Wireless Adapter [Realtek RTL8188CUS] - (PLANEX)
+20f4:648b  TEW-648UBM 802.11n 150Mbps Micro Wireless N Adapter [Realtek RTL8188CUS] - (TRENDnet)
+7392:7811  EW-7811Un 802.11n Wireless Adapter [Realtek RTL8188CUS] - (Edimax Technology Co., Ltd)
+0bda:8176  Realtek Semiconductor Corp. RTL8188CUS 802.11n WLAN  (Solwise NET-WL-UMD-606N)
+
+
+A comprehensive list of USB devices and their ID's can be found at http://usb-ids.gowdy.us/usb.ids
+
+The following is a list of USB device Vendor and Product Ids, VIDs and PIDs, for wifi adapters 
+supported by the rtl8188cus driver.
+
+VID   ,	PID		VID   ,	PID		VID   ,	PID		VID   ,	PID
+0x04F2, 0xAFF7		0x0BDA, 0x018A		0x0BDA, 0x8191		0x2019, 0x1201
+0x04F2, 0xAFF9		0x0BDA, 0x317F		0x0BDA, 0x8754		0x2019, 0x4902
+0x04F2, 0xAFFA		0x0B05, 0x17AB		0x0DF6, 0x0052		0x2019, 0xAB2A
+0x04F2, 0xAFF8		0x0BDA, 0x5088		0x0DF6, 0x005C		0x2019, 0xAB2B
+0x04F2, 0xAFFB		0x0BDA, 0x8170		0x0DF6, 0x0061		0x2019, 0xAB2E
+0x04F2, 0xAFFC		0x0BDA, 0x8176		0x0E66, 0x0019		0x2019, 0xED17
+0x050D, 0x1102		0x0BDA, 0x8177		0x0EB0, 0x9071		0x20F4, 0x624D
+0x050D, 0x2102		0x0BDA, 0x8178		0x103C, 0x1629		0x20F4, 0x648B
+0x050D, 0x2103		0x0BDA, 0x817A		0x13D3, 0x3357		0x4855, 0x0090
+0x0586, 0x341F		0x0BDA, 0x817B		0x13D3, 0x3358		0x4855, 0x0091
+0x06F8, 0xE033		0x0BDA, 0x817C		0x13D3, 0x3359		0x4856, 0x0091
+0x07AA, 0x0056		0x0BDA, 0x817D		0x2001, 0x3307		0x7392, 0x7811
+0x07B8, 0x8178		0x0BDA, 0x817E		0x2001, 0x3308		0x7392, 0x7822
+0x07B8, 0x8189		0x0BDA, 0x817F		0x2001, 0x3309
+0x0846, 0x9021		0x0BDA, 0x8186		0x2001, 0x330A
+0x0846, 0x9041		0x0BDA, 0x818A		0x2001, 0x330D
+
+
+If you have one of these there's a good chance my installation will get your adapter up and 
+running. If you cannot identify your device and it is not in the list you can find out the ID 
+by reading on.
+
+If you have another Linux machine then you may be able to use that but I and many others 
+have found Linux systems, especially the Pi with Debian software, may hang when inserting 
+this type of wifi adapter if the driver is not already installed. You can try though. Plug 
+your wifi adapter into a USB  port and enter the command lsusb. This command is used to 
+list the USB devices connected to your system. There will probably be a short delay and then 
+if all goes well this will generate a list of USB devices and show the details of your 
+device. If you already have another Linux machine then you are probably fairly well up with 
+Linux and already know enough to set the adapter up yourself.
+
+For an RTL8188CUS chip you should see something like:
+
+BUS 001 Device 004: ID 0bda:8176 Realtek Semiconductor Corp. RTL8188CUS 802.11n WLAN
+
+or one of the other identifiers listed above. This is not a definitive list and there are
+many other devices using the RTL8188CUS chip.
+
+
+If you have a Windows system of some sort proceed as follows. Insert the adapter into a USB 
+port. Windows will try to load a driver for it. When that has finished open "Control Panel" 
+and select "Device Manager". Look in the "Network Adapters" section and you should see the 
+adapter listed. On my Windows 7 system it shows up as a "Realtek RTL8188CU Wireless LAN 
+802.11n USB 2.0 Network Adaptor". 
+
+Note this says "RTL8188CU" seems an "S" is missing. To make sure it really is an 
+"RTL8188CUS" select the adapter and right click and open "Properties". Select "Details", 
+open the "Property" list and select "Hardware Ids". This will then show something like:
+
+USB\VID_0BDA&PID_8176&REV_0200
+USB\VID_0BDA&PID_8176
+
+The VID=0BDA, PID=8176 (0BDA:8176) identifies the device as an RTL8188CUS.
+
+So, the important information is the device ID (VID/PID) which in my case is 0bda:8176. 
+This identifies the adapter is an RTL8188CUS chip.
+
+To use the rtl8188cus driver your device's ID must match one in the VID/PID list above. 
+If it is not based on the RTL8188CUS then unfortunately I cannot help further.
+
+If your device does match one from the list above then continue on. Bear in mind that I am 
+using a Micronet Wireless LAN USB Adapter Model No: SP907NS and Edimax EW-7811Un. If you 
+have one of these I would expect it to work but cannot guarantee this. If you have another 
+manufacturer's wifi adapter based on the RTL8188CUS then I would also expect it to work but 
+again it may not. There could be minor hardware differences, for example, which is why they 
+have adopted a different device ID to the original Realtek ID. This could cause hiccups in 
+the driver which may stop it from functioning correctly.
+
+
+Initialising your first SD card:
+--------------------------------
+
+There is plenty of information on the Raspberry Pi wiki about initialising your SD card. 
+Take a look at the Raspberry Pi wiki at http://elinux.org/RPi_Easy_SD_Card_Setup and view 
+the section "Copying the image to an SD Card on Windows" if you normally use a Windows 
+system.
+
+Initialise your SD using the instructions on the wiki but stop after step 9. You may need 
+to copy the script and some additional files to the SD card before bringing up the Pi.
+
+
+If your Pi has NO internet connection:-
+
+To configure the SD card to run the script for the wifi adapter without an internet 
+connection to the RPi you will need to download the script and some additional files. The 
+files you need will vary depending on the image you are using. There is a list images and 
+the files needed for each one at the end of this document. You will need to download the 
+files and copy them and the script to the /boot directory of SD card.
+
+Insert the SD card back into the card reader. If you used a Windows sytem to generate the SD 
+card image use Windows Explorer to view the SD card. The SD card will show in Windows as a 
+disk with a folder of about 74-75MB. The remainder of the SD card uses Linux partitions that 
+do not show up in Windows, and if the SD card is bigger than 2GB much of the card will be 
+unused which will also not show up in Windows. So do not worry about the size you see.
+
+Now copy the script and the files you need to the SD drive. Once they are copied over to the 
+SD card you can eject the card from the card reader.
+
+
+If your Pi DOES have an internet connection, wired or wireless:-
+
+You not need to copy any files to the SD card before running the Pi. Once the Pi is up and 
+running you will need to download one file, the script. Any remain files needed will be 
+downloaded from the internet by the script when it is running. 
+
+
+PLEASE NOTE: If you copy the image to the SD card using windd (windows dd) be careful about 
+where you store the image you are going to copy. Make sure there are no space characters in 
+the file path or dd will fail to copy the image correctly.
+
+If the SD card you intend using is bigger than 2GB it is a very good idea to re-partition 
+it, i.e. expand the space to store the software and make it fill the whole SD card, so you 
+can use the whole disk capacity otherwise it is rather a waste as a part of the SD card will 
+be unusable and you may find you run out of space fairly quickly. Some images will 
+automatically resize themselves when first run. Refer to the documentation for the image you 
+are using.
+
+To resize partitions I use 
+
+gparted live 
+
+This can be found at http://gparted.sourceforge.net/livecd.php. gparted live is a CD ISO image. 
+This needs writing to a CD. gparted is then run by inserting it into the CD drive on your 
+system and booting from the CD. 
+
+If your SD card is bigger than 2GB I would certainly recommend re-partitioning it. With the 
+size of the updates and upgrades increasing rapidly I would now suggest re-partitioning the 
+SD card before unning the wifi installation.
+
+A couple of things I've noticed about using Win32DiskImager. I normally use a USB card 
+reader to plug my SD card into. If I start Win32DiskImager before the card is plugged into 
+the card reader Win32DiskImager will not see it when I plug the SD card into the card 
+reader. The card  must be plugged into the card reader before I start Win32DiskImager. On 
+the other hand if I use the built in SD card slot on my laptop then I can start 
+win32DiskImager before the SD card is plugged in and when I plug in the SD card 
+Win32DiskImager will detect it automatically. Strange ;) Other people have reported that 
+Win32DiskImager will not see the SD card at all if it plugged directly into an SD card 
+reader but that they need to use aUSB connected SD card reader.
+
+
+Before running the script you need to determine three items, your wireless network name - 
+the SSID, the network password - Network Security Key as it is known in Windows 7 and the 
+type of security the network uses, if any. e.g unsecured, WEP or WPA/WPA2.
+
+When the script runs it will ask you the type of security used and to input the SSID, and 
+if your network uses WEP or WPA/WPA2, the PASSWORD when they are required.
+
+IMPORTANT: The SSID, security mode and PASSWORD must match those used by your wireless 
+network. If they do not the Pi will not connect to your wireless network and the 
+installation script will fail. You will need to start back from the beginning and re-write 
+your SD card with the software image and re-copy the driver files. You must use the correct 
+SSID, security mode and PASSWORD.
+
+The script will ask you to verify the SSID and PASSWORD are correct before using them in the 
+installation.
+ 
+After you have copied the files to the SD card it is ready to be plugged into the Pi. If you 
+are adding a new wifi adapter - DO NOT PLUG IN THE WIFI ADAPTER UNTIL ASKED TO.
+
+
+
+Installing your rtl8188cus wireless adapter:
+--------------------------------------------
+
+
+If you are installing your first wifi adapter or adding a new wifi adapter to a Pi that 
+already has a different one installed the driver should be installed BEFORE plugging in the 
+new wifi adapter.
+
+DO NOT PLUG IN THE WIFI ADAPTER UNTIL ASKED TO - LOOK AT THE SCREEN OUTPUT FOR INSTRUCTIONS.
+
+So connect up your Pi then power on and wait for it to boot and initialise. Log in and then 
+you can start to install the software/firmware for the wifi adapter.
+
+Some images need configuring when they are first run so go through the configuration before 
+running the sript. After the image is configured you can start the script to install the wifi. 
+
+If you have an internet connection to your Pi you can now download the script. Use the
+command:
+
+sudo wget http://dl.dropbox.com/u/80256631/install-rtl8188cus-latest.sh -O /boot/install-rtl8188cus-latest.sh
+
+This will install the script in the /boot directory of the SD card ready to run.
+
+
+If you are NOT logged in as root start the script using the command:
+
+sudo /boot/install-rtl8188cus-latest.sh
+
+If you are logged in as root use the command:
+
+/boot/install-rtl8188cus-latest.sh (no sudo!)
+
+If you are connected to the Pi using ssh, and not logged in as root user then you may need 
+to use the command
+
+sudo bash /boot/install-rtl8188cus-latest.sh 
+
+or if logged in as the root user.
+
+bash /boot/install-rtl8188cus-latest.sh 
+
+The script should now start running. I have written the script so it will output messages to 
+the screen so you can see what it is doing as a lot of the time there is no output to the 
+display.
+
+If you have not used the script before it will make an update to the kernel configuration
+to allow you to run with the wifi adapter plugged in before the driver is loaded. This
+configuration change will disable a built in driver that does not work and causes problems
+if the wifi adapter is plugged in before the working driver is installed. After making the
+change it will shutdown the Pi. You can then plug in the wifi adapter and power on again 
+and thePi should run without problems. You can then run the acript to install the wifi
+driver and configure the wifi.
+
+At the beginning of the installation the script will make several checks. It will check if 
+you have an internet connection, wired or wireless, and you have access to the internet. It 
+will try and determine if you already have a wifi adapter configured.
+
+If you do not have an internet connection to your Pi it will check it has all the necessary 
+files to install and run the wifi driver. If it does not have all the files it needs it will 
+output a list of files it does not have and will abort the installation. You will have to 
+download the files it requires and copy them to the /boot directory of the SD card and 
+restart the script.
+
+For some images it may be necessary to install some additional applications to allow the 
+wifi to operate correctly. The script will install these before configuring and installing 
+the wifi driver. If your Pi doesn't have an internet connection and these files are not 
+copied to the SD card the script will list the files it needs and then abort. You will need 
+to download and copy these files to the /boot directory of the image.
+
+To copy missing files to the Pi there are basically two ways to do it. You can shutdown the 
+Pi, remove the SD card and plug it into the computer used to generate the image in the first 
+place. Then download the missing files on that computer and copy them to the SD card. 
+
+Alternatively you can download the files needed on another computer with internet access and 
+then copy them to a USB stick. You can then install the USB stick in the Pi and copy them from 
+the USB stick to the SD card. To copy files to the /boot directory you will need to run the 
+commands as root user. As I understand it a USB stick would normally be automatically mounted
+in the directory /media. The command
+
+ls /media 
+
+should then show the device name. You can then copy the files using the command format 
+
+sudo cp /media/device-name/filename /boot
+
+I have, however, found that devices are not always mounted automatically so you must first 
+mount the device manually. Using the command 
+
+sudo mount /dev/sda1 /mnt 
+
+will mount the device in the /mnt directory rather than /media. The files can then be displayed 
+with the command 
+
+ls /mnt
+ 
+You can then copy the files using the command format 
+
+sudo cp /mnt/filename /boot 
+
+When finished copying the necessary files do not forget to unmount the USB stick - 
+
+sudo umount /dev/sda1
+
+Once all the files are copied to the SD card restart the script. It will again check all the 
+files needed are available on the SD card and then start the install. 
+
+If you already have a wifi adapter installed it will ask if you want to update the driver or 
+add a new wifi adapter. If you are using an image that already has the rtl8188cus driver 
+installed and it no longer works because you have made a software update you can update the 
+driver to repair the driver installation. If a wifi driver is already installed, either 
+using a different driver or the rtl8188cus driver, you can add another wifi adapter. You can 
+then use either adapter or even use both. You can use this option to install a new wifi 
+adapter if you don't want to use your old adapter, although the Pi will still be configured 
+to run the older adapter if necessary.
+
+After the driver and any other files needed are installed the script will then configure the 
+files needed to use the wifi. It will first ask you the type of security the network uses if 
+any. eg unsecured, WEP or WPA/WPA2. It uses this to determine some of the settings needed 
+for the installation and whether you need to input a PASSWORD. The script will not ask for a 
+password if you selected unsecured as the network security.
+
+The script will then ask you to input the network SSID and a PASSWORD if it is required. 
+Type in the SSID and then the PASSWORD. These values will be copied to the file 
+/etc/network/interfaces as part of the setup. When inputting the SSID and PASSWORD the 
+script will ask you to verify that they are correct before using then.
+
+A recent addition to the script is a check to see if the wifi network you want to connect to 
+is visible by the wifi adapter - that is it is transmitting it's ssid. With the basic setup 
+used by the script a wifi adapter will not be able to connect to a network that does not 
+transmit it's ssid. When the script gets to the point where it asks for the ssid of the 
+network you want to connect to it will check the name is in this list. If it is not it will 
+let you know. To get a connection you should reconfigure your wireless network to transmit 
+the ssid.
+
+Once the SSID and PASSWORD have been input and verified OK the remaining files will be 
+configured to ensure the driver module is automatically loaded whenever the Pi is restarted.
+
+The wifi driver should now be installed and configured. The script will output a message 
+asking you to plug in the wifi adapter. Plug in the wifi adapter and press any key to 
+continue.
+
+It will wait for the wifi to connect then output some information about the network 
+connection. It will show details on the wireless setup and should show you the IP address 
+assigned to the wireless adapter. You can terminate the installation at this point by 
+pressing Cntl-C.
+
+If you do not terminate the script it will then continue on and update the software packages 
+list and upgrade the installed software packages. This can take a long time especially if 
+you are using any of the older images.
+
+The script will then install rpi-update if it is not already installed. The rpi-update 
+script, developed by Hexxeh, updates the Pi firmware/software.
+
+The script will now check if the driver that is loaded is the latest available or not. If 
+the installed driver is the latest the script will terminate and the wifi should be working. 
+
+If the driver is not the latest version rpi-update will be run to update the Pi's 
+firmware/software and then the final stage of the installation is to update the wifi driver 
+to the latest version. 
+
+If rpi-update is run by the script when the script terminates the Pi will reboot. If rpi-
+update does not run the script will just terminate and you can continue to use the Pi.
+
+When it has rebooted, login - AND START TO HAVE SOME FUN.
+
+     HAVE FUN WITH YOUR RASPBERRY PI.
+
+
+
+Possible problems:
+------------------
+
+If the script gets stuck at some point you should be able to terminate the script by 
+pressing Cntl-C. However, please be careful using this option. Some events can take some 
+time to complete even if there appears to be no activity. As an example I have seen rpi-update 
+take almost 20 minutes to complete an update. During this time there was no output to the 
+screen and little activiy from the LEDs.
+
+Waiting for the wifi to connect after completing the install can also take rather longer than
+might be expected the first time around.
+
+I have occasionally seen problems when running the script. It may get stuck when updating 
+the packages list or the installed software packages. The commands to download the package 
+list or the updates may fail to access the download site and may get stuck and loop 
+continuously. In this situation I have generally been able to recover by terminating the 
+script using Cntl-C and then re-running the script and selecting the Update option.
+
+I have also on a couple of occasions had the kernel crash while the package updates have 
+been running. Again I have been able to recover by re-running the script and selecting the 
+Upgrade option.
+
+
+
+
+rtl8188cus driver versions and compatible Linux versions
+-------------------------------------------------------- 
+
+Drivers are now included in the image
+
+Linux raspberrypi 3.6.11+ #551 PREEMPT Mon Sep 30 14:42:10 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #545 PREEMPT Fri Sep 20 23:57:55 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #541 PREEMPT Sat Sep 7 19:46:21 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #538 PREEMPT Fri Aug 30 20:42:08 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #532 PREEMPT Thu Aug 29 21:33:41 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #528 PREEMPT Tue Aug 20 00:25:53 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #524 PREEMPT Thu Aug 15 15:48:48 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #520 PREEMPT Wed Aug 7 16:07:34 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #518 PREEMPT Fri Aug 2 11:39:53 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #514 PREEMPT Tue Jul 30 23:14:45 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #512 PREEMPT Sat Jul 27 19:08:54 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #510 PREEMPT Mon Jul 22 21:55:20 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #506 PREEMPT Fri Jul 19 20:01:57 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #502 PREEMPT Tue Jul 16 17:00:35 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #496 PREEMPT Thu Jul 11 00:09:56 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #494 PREEMPT Fri Jul 5 15:30:31 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #488 PREEMPT Tue Jul 2 16:37:47 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #484 PREEMPT Mon Jun 24 15:45:35 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #474 PREEMPT Thu Jun 13 17:14:42 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #464 PREEMPT Thu Jun 6 18:17:55 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #462 PREEMPT Mon Jun 3 22:15:00 BST 2013 armv6l GNU/Linux
+Linux raspberrypi2 3.6.11+ #456 PREEMPT Mon May 20 17:42:15 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #452 PREEMPT Fri May 17 14:25:40 BST 2013 armv6l GNU/Linux
+Linux raspberrypi2 3.6.11+ #450 PREEMPT Tue May 14 14:05:42 BST 2013 armv6l GNU/Linux
+Linux raspberrypi2 3.6.11+ #446 PREEMPT Fri May 10 20:17:25 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #434 PREEMPT Wed May 1 21:13:52 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #427 PREEMPT Fri Apr 26 20:53:06 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #414 PREEMPT Thu Apr 18 02:00:59 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #408 PREEMPT Wed Apr 10 20:33:39 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #403 PREEMPT Tue Apr 2 22:48:13 BST 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #401 PREEMPT Fri Mar 29 22:59:09 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #399 PREEMPT Sun Mar 24 19:22:58 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #397 PREEMPT Mon Mar 18 22:17:49 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #393 PREEMPT Fri Mar 8 16:36:28 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #389 PREEMPT Wed Mar 6 12:43:30 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #387 PREEMPT Sun Mar 3 23:54:39 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #385 PREEMPT Fri Mar 1 21:53:22 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #377 PREEMPT Sat Feb 16 17:31:02 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #375 PREEMPT Tue Feb 12 01:41:07 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #371 PREEMPT Thu Feb 7 16:31:35 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #368 PREEMPT Sun Feb 3 18:35:57 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #366 PREEMPT Wed Jan 30 12:59:10 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #362 PREEMPT Tue Jan 22 14:52:21 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #358 PREEMPT Tue Jan 15 00:45:33 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #354 PREEMPT Sun Jan 13 16:13:26 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #352 PREEMPT Wed Jan 9 17:16:53 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #350 PREEMPT Mon Jan 7 21:51:11 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #348 PREEMPT Tue Jan 1 16:33:22 GMT 2013 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #346 PREEMPT Fri Dec 28 00:50:33 GMT 2012 armv6l GNU/Linux
+Linux raspberrypi 3.6.11+ #340 PREEMPT Thu Dec 27 17:31:37 GMT 2012 armv6l GNU/Linux
+
+Linux raspberrypi 3.2.27+ #307 PREEMPT Mon Nov 26 23:22:29 GMT 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #285 PREEMPT Tue Nov 20 17:49:40 GMT 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #260 PREEMPT Thu Nov 8 00:34:12 GMT 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #257 PREEMPT Mon Nov 5 00:01:55 GMT 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #250 PREEMPT Thu Oct 18 19:03:02 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #247 PREEMPT Tue Oct 16 01:49:18 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #244 PREEMPT Sat Oct 6 17:26:38 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #238 PREEMPT Fri Oct 5 23:19:10 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #174 PREEMPT Wed Sep 26 14:09:47 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #171 PREEMPT Tue Sep 25 00:08:57 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #168 PREEMPT Sat Sep 22 19:26:13 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #165 PREEMPT Thu Sep 20 22:28:17 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #160 PREEMPT Mon Sep 17 23:18:42 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #157 PREEMPT Mon Sep 17 21:08:07 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #151 PREEMPT Fri Sep 14 17:00:51 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #148 PREEMPT Thu Sep 13 21:36:23 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #143 PREEMPT Tue Sep 11 02:02:37 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #138 PREEMPT Mon Sep 10 01:04:03 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #114 PREEMPT Tue Sep 4 00:15:33 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #108 PREEMPT Mon Sep 3 17:42:39 BST 2012 armv6l GNU/Linux
+----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu-20120830.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120830.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.2.27+ #102 PREEMPT Sat Sep 1 01:00:50 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #96 PREEMPT Fri Aug 31 13:34:04 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #90 PREEMPT Wed Aug 29 22:58:42 BST 2012 armv6l GNU/Linux
+
+----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu-20120825.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120825.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.2.27+ #84 PREEMPT Tue Aug 28 18:11:56 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #66 PREEMPT Fri Aug 24 23:52:42 BST 2012 armv6l GNU/Linux
+
+----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu-20120819.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120819.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.2.27+ #60 PREEMPT Thu Aug 23 15:33:51 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #54 PREEMPT Wed Aug 22 13:22:32 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #41 PREEMPT Tue Aug 21 15:51:24 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #24 PREEMPT Sun Aug 19 21:28:36 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #12 PREEMPT Sun Aug 19 12:28:17 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.2.27+ #6 PREEMPT Sat Aug 18 15:05:48 BST 2012 armv6l GNU/Linux
+----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu-20120726.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120726.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.1.9+ #278 PREEMPT Wed Aug 15 20:59:07 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #272 PREEMPT Tue Aug 7 22:51:44 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #242 PREEMPT Wed Aug 1 19:47:22 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #208 PREEMPT Fri Jul 27 11:02:39 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #202 PREEMPT Wed Jul 25 22:11:06 BST 2012 armv6l GNU/Linux
+----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu-20120701.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120701.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.1.9+ #196 PREEMPT Wed Jul 25 21:14:44 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #174 PREEMPT Sun Jul 22 19:04:28 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #171 PREEMPT Tue Jul 17 01:08:22 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #168 PREEMPT Sat Jul 14 18:56:31 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #165 PREEMPT Fri Jul 13 18:54:13 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #162 PREEMPT Thu Jul 12 12:01:22 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #159 PREEMPT Wed Jul 11 19:54:53 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #155 PREEMPT Mon Jul 9 12:49:19 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #152 PREEMPT Fri Jul 6 18:47:16 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #149 PREEMPT Thu Jul 5 01:33:01 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #144 PREEMPT Sun Ju1 1 12:37:10 BST 2012 armv6l GNU/Linux
+----------------------------------------------------------------------------------
+
+Netgear 0846:9041 device - added in 8192cu-20120629 and all newer versions
+debug removed - added in 8192cu-20120622 and all newer versions.
+
+Driver tar file: 8192cu-20120629.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120629.tar.gz)
+Driver tar file: 8192cu-20120622.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120622.tar.gz)
+Driver tar file: 8192cu-20120617.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120617.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.1.9+ #138 PREEMPT Tue Jun 26 16:27:52 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #135 PREEMPT Fri Jun 22 20:39:30 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #128 PREEMPT Thu Jun 21 01:59:01 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #125 PREEMPT Sun Jun 17 16:09:36 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #122 PREEMPT Sun Jun 17 00:30:41 BST 2012 armv6l GNU/Linux
+-----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu-20120611.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120611.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.1.9+ #110 PREEMPT Wed Jun 13 11:41:58 BST 2012 armv6l GNU/Linux
+Linux raspberrypi 3.1.9+ #107 PREEMPT Sun Jun 10 15:57:56 BST 2012 armv6l GNU/Linux
+-----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu-20120607.tar.gz (http://dl.dropbox.com/u/80256631/8192cu-20120607.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.1.9+ #101 PREEMPT Mon Jun 4 17:19:44 BST 2012 armv6l GNU/Linux
+-----------------------------------------------------------------------------------
+
+Driver tar file: 8192cu.tar.gz (http://www.electrictea.co.uk/rpi/8192cu.tar.gz)
+For kernel versions:
+
+Linux raspberrypi 3.1.9+ #90 Wed Apr 18 18:23:05 BST 2012 armv6l GNU/Linux
+-----------------------------------------------------------------------------------
+
+
+
+
+Images and associated files needed to install the driver if you have no internet connection 
+to your Pi. If you have updated your image with apt-get or rpi-update the files needed will
+probably be different. If you run the script it will tell you what files it needs if you
+have not already copied them to the SD card.
+--------------------------------------------------------------------------------------------
+
+debian6-19-04-2012
+------------------
+
+http://www.electrictea.co.uk/rpi/8192cu.tar.gz
+--------------------------------------------------------------------------------------------
+
+2012_06_10_spindle_wheezy_public_alpha
+--------------------------------------
+
+http://ftp.uk.debian.org/debian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armel.deb
+http://ftp.uk.debian.org/debian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armel.deb
+http://ftp.uk.debian.org/debian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armel.deb
+http://ftp.uk.debian.org/debian/pool/main/w/wpa/wpasupplicant_1.0-2_armel.deb
+
+http://dl.dropbox.com/u/80256631/8192cu-20120611.tar.gz
+--------------------------------------------------------------------------------------------
+
+2012-06-18-wheezy-beta
+----------------------
+
+http://dl.dropbox.com/u/80256631/8192cu-20120629.tar.gz
+--------------------------------------------------------------------------------------------
+
+2012-07-15-wheezy-raspbian (Raspberry Pi Download page)
+--------------------------
+
+http://dl.dropbox.com/u/80256631/8192cu-20120701.tar.gz
+--------------------------------------------------------------------------------------------
+
+2012-08-08-wheezy-armel
+--------------------------
+
+http://dl.dropbox.com/u/80256631/8192cu-20120726.tar.gz
+--------------------------------------------------------------------------------------------
+
+2012-08-16-wheezy-raspbian
+--------------------------
+
+http://dl.dropbox.com/u/80256631/8192cu-20120726.tar.gz
+--------------------------------------------------------------------------------------------
+
+
+raspbian hexxeh R3
+------------------
+http://archive.raspbian.org/raspbian/pool/main/u/unzip/unzip_6.0-7_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/libiw30_30~pre9-8_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/wireless-tools_30~pre9-8_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wpa/wpasupplicant_1.0-2_armhf.deb
+
+http://www.electrictea.co.uk/rpi/8192cu.tar.gz
+--------------------------------------------------------------------------------------------
+
+raspbian pisces+mate R1
+-----------------------
+http://archive.raspbian.org/raspbian/pool/main/u/unzip/unzip_6.0-7_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/libiw30_30~pre9-8_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/wireless-tools_30~pre9-8_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wpa/wpasupplicant_1.0-2_armhf.deb
+
+http://dl.dropbox.com/u/80256631/8192cu-20120629.tar.gz
+--------------------------------------------------------------------------------------------
+
+raspbian pisces R1
+------------------
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/libiw30_30~pre9-8_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/wireless-tools_30~pre9-8_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wpa/wpasupplicant_1.0-2_armhf.deb
+
+http://www.electrictea.co.uk/rpi/8192cu.tar.gz
+--------------------------------------------------------------------------------------------
+
+raspbian pisces R2
+------------------
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/libiw30_30~pre9-8_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/wireless-tools_30~pre9-8_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wpa/wpasupplicant_1.0-2_armhf.deb
+
+http://www.electrictea.co.uk/rpi/8192cu.tar.gz
+--------------------------------------------------------------------------------------------
+
+raspbian pisces R3
+------------------
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/libiw30_30~pre9-8_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/wireless-tools_30~pre9-8_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wpa/wpasupplicant_1.0-2_armhf.deb
+
+http://dl.dropbox.com/u/80256631/8192cu-20120701.tar.gz
+--------------------------------------------------------------------------------------------
+
+raspbian_wheezy_20120608 (darkbasic)
+------------------------------------
+http://archive.raspbian.org/raspbian/pool/main/d/dbus/libdbus-1-3_1.6.0-1_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/libiw30_30~pre9-8_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/wireless-tools_30~pre9-8_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/d/dbus/dbus_1.6.0-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/d/dbus/libdbus-1-3_1.6.0-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/e/expat/libexpat1_2.1.0-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/s/systemd/libsystemd-login0_44-3_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wpa/wpasupplicant_1.0-2_armhf.deb
+
+http://dl.dropbox.com/u/80256631/8192cu-20120607.tar.gz
+--------------------------------------------------------------------------------------------
+
+XBian 0.4.2
+-----------
+http://archive.raspbian.org/raspbian/pool/main/u/unzip/unzip_6.0-7_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/libiw30_30~pre9-8_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wireless-tools/wireless-tools_30~pre9-8_armhf.deb
+
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/libn/libnl3/libnl-genl-3-200_3.2.7-4_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/p/pcsc-lite/libpcsclite1_1.8.4-1_armhf.deb
+http://archive.raspbian.org/raspbian/pool/main/w/wpa/wpasupplicant_1.0-2_armhf.deb
+
+http://dl.dropbox.com/u/80256631/xbian-8192cu.tar.gz
+--------------------------------------------------------------------------------------------
+
+XBian 0.5, 0.6, 0.6.1
+
+Files are included in the image.
